@@ -91,6 +91,34 @@ pipeline polls the PR and continues by itself once it is merged.
 To regenerate: start `fakeapi`, start `sdlc up -agent mock` (no auto-approve) and run
 `pwsh scripts/capture-screenshots.ps1 -Base http://localhost:8090`.
 
+## A real run with Claude agents
+
+The screenshots above use the mock agent. This section is the same orchestrator driving **real Claude
+agents** (`sdlc demo -agent claude`) to build the sample app end to end: **13/13 phases, 2 tickets merged,
+40 agent calls, $4.34 against a $10 budget, in under an hour.**
+
+Honest notes: the clarifying questions and gates in this run were resolved by the demo auto-approver
+(`demo-auto-approver` in the audit trail), not by people, and Jira/GitHub were the local stand-ins. What
+is real is every agent-written artifact and every line of code below.
+
+| Overview: pipeline, tickets, decisions | Documents: Claude-written PRD and ADD |
+|---|---|
+| ![Real run overview](docs/real-claude-run/09-overview-complete.png) | ![Real documents](docs/real-claude-run/10-documents.png) |
+
+| Tickets and MRs | Activity |
+|---|---|
+| ![Real tickets](docs/real-claude-run/11-tickets.png) | ![Real activity](docs/real-claude-run/12-activity.png) |
+
+- The artifacts: [`docs/real-claude-run/prd.md`](docs/real-claude-run/prd.md) (125 lines) and
+  [`docs/real-claude-run/add.md`](docs/real-claude-run/add.md) (249 lines). Each went through critic loops before approval.
+- The app it built, as committed by the pipeline:
+  [`examples/document-organizer-built-by-pipeline/`](examples/document-organizer-built-by-pipeline)
+  (store with atomic writes and cross-process locking, CLI, loopback HTTP API with Host/Origin guards; `go vet` and
+  all tests pass standalone).
+- A transcript of using it: [`docs/real-claude-run/app-demo.txt`](docs/real-claude-run/app-demo.txt)
+  (add, list, search by tag/text, validation, HTTP API, 403 on a foreign Host header).
+- CLI view of the run, including the requirement-to-merge trace: [`docs/real-claude-run/cli-output.txt`](docs/real-claude-run/cli-output.txt).
+
 ## How it works
 
 Every phase runs the same pipeline, implemented once in `internal/engine/worker.go`:

@@ -85,6 +85,6 @@ Shot '13-light-theme' "/run/${id}?theme=light" 1500
 Shot '14-dark-restore' "/?theme=dark" 300 | Out-Null
 Remove-Item "$Out\14-dark-restore.png" -ErrorAction SilentlyContinue
 
-$cli = Join-Path (Split-Path $Out -Parent) 'cli-output.txt'
+$cli = Join-Path $Out 'cli-output.txt'
 @("`$ sdlc status $id", (& $Bin status $id 2>&1 | Out-String), "`$ sdlc trace $id", (& $Bin trace $id 2>&1 | Out-String), "`$ sdlc ci-check $id", (& $Bin ci-check $id 2>&1 | Out-String)) | Set-Content $cli -Encoding utf8
 Write-Host "done: run $id"

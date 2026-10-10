@@ -1,0 +1,83 @@
+# Using the document organizer that the pipeline built (real Claude agents)
+# built from examples/document-organizer-built-by-pipeline with: go build -o docs .
+
+$ docs add --title "Q3 planning" --tag work --tag planning   (content on stdin)
+{
+  "id": 1,
+  "title": "Q3 planning",
+  "content": "Quarterly planning notes: roadmap and hiring.\r\n",
+  "tags": [
+    "work",
+    "planning"
+  ],
+  "created_at": "2026-10-10T12:15:31.5700601Z"
+}
+
+$ docs add --title "Groceries" --tag home
+{
+  "id": 2,
+  "title": "Groceries",
+  "content": "Grocery list: milk, eggs, coffee.\r\n",
+  "tags": [
+    "home"
+  ],
+  "created_at": "2026-10-10T12:15:31.5908556Z"
+}
+
+$ docs list --summary
+[
+  {
+    "id": 2,
+    "title": "Groceries",
+    "tags": [
+      "home"
+    ],
+    "created_at": "2026-10-10T12:15:31.5908556Z"
+  },
+  {
+    "id": 1,
+    "title": "Q3 planning",
+    "tags": [
+      "work",
+      "planning"
+    ],
+    "created_at": "2026-10-10T12:15:31.5700601Z"
+  }
+]
+
+$ docs search --tag work --summary
+[
+  {
+    "id": 1,
+    "title": "Q3 planning",
+    "tags": [
+      "work",
+      "planning"
+    ],
+    "created_at": "2026-10-10T12:15:31.5700601Z"
+  }
+]
+
+$ docs search --q coffee --summary
+[
+  {
+    "id": 2,
+    "title": "Groceries",
+    "tags": [
+      "home"
+    ],
+    "created_at": "2026-10-10T12:15:31.5908556Z"
+  }
+]
+
+$ docs search            # no criteria: rejected
+docs: search requires at least one of --tag or --q
+(exit code 2)
+
+$ docs serve --addr 127.0.0.1:8766   then:
+GET /documents?tag=work
+[{"id":1,"title":"Q3 planning","content":"Quarterly planning notes: roadmap and hiring.\r\n","tags":["work","planning"],"created_at":"2026-10-10T12:15:31.5700601Z"}]
+
+
+GET /documents with a foreign Host header (DNS-rebinding guard)
+HTTP 403 (rejected)

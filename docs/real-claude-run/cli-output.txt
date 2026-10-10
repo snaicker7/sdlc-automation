@@ -1,0 +1,39 @@
+$ sdlc status 3335cd29-ffe3-4fcb-951e-c64bd8cefca4
+
+Run 3335cd29-ffe3-4fcb-951e-c64bd8cefca4  [completed]  Document organizer
+  spent $4.34 / $10.00, 40 agent calls
+
+  [done]   prd                                 (loops=2)
+  [done]   add                                 (loops=2)
+  [done]   repo_breakdown                     
+  [done]   jira_creation                       (loops=2)
+  [done]   workspace                          
+  [done]     DEMO-2/ticket_dev                 (loops=2)
+  [done]     DEMO-2/testing                   
+  [done]     DEMO-2/mr_creation               
+  [done]     DEMO-2/post_mr                   
+  [done]     DEMO-3/ticket_dev                 (loops=2)
+  [done]     DEMO-3/testing                   
+  [done]     DEMO-3/mr_creation               
+  [done]     DEMO-3/post_mr                   
+  Q[prd] Should the tool expose both a CLI and an HTTP server, and are they required to share the same JSON data file and feature set (add, list, search), or is one the primary interface and the other secondary? -> accepted_assumption: Both ship in a single binary with subcommands (e.g. `add`, `list`, `search`, `serve`), sharing one storage layer and the same JSON file; HTTP exposes a JSON REST API (POST/GET /documents, GET /documents?tag=&q=) with no web UI. (demo-auto-approver)
+  Q[prd] How should search semantics work: tag matching (exact vs. prefix, AND vs. OR for multiple tags), text matching (case-insensitive substring over title and body vs. ranked/tokenized), and should text and tag filters combine? -> accepted_assumption: Case-insensitive substring match over title and body; tags are case-insensitive exact matches, multiple tags combine with AND; tag and text filters combine with AND; results sorted by newest first, no ranking. (demo-auto-approver)
+  Q[prd] What document lifecycle operations are in scope beyond add and list (view single doc, edit, delete), and how is content supplied (inline flag, file path, stdin)? -> accepted_assumption: Include add, list, get (by ID), search, and delete; no edit in v1. Content comes from a file path or stdin; documents get auto-generated incrementing IDs, with title required and tags optional. (demo-auto-approver)
+  Q[prd] What are the expectations for storage robustness and HTTP exposure: atomic writes and concurrency safety, data file location, and network binding/auth for the server? -> accepted_assumption: Mutex-guarded in-memory store with atomic write (temp file + rename) to `./docs.json` (overridable via flag/env); HTTP server binds to 127.0.0.1:8080 by default with no authentication. (demo-auto-approver)
+  MR !1 DEMO-2 merged cb41da3
+  MR !2 DEMO-3 merged 9bcd25b
+
+$ sdlc trace 3335cd29-ffe3-4fcb-951e-c64bd8cefca4
+REQ     ADD            STORY     COMMIT    MR       MERGE
+REQ-1   add.md#REQ-1   DEMO-2    4cf77a0   MR !1    cb41da3
+REQ-1   add.md#REQ-1   DEMO-3    6505c1b   MR !2    9bcd25b
+REQ-2   add.md#REQ-2   DEMO-2    4cf77a0   MR !1    cb41da3
+REQ-2   add.md#REQ-2   DEMO-3    6505c1b   MR !2    9bcd25b
+REQ-3   add.md#REQ-3   DEMO-2    4cf77a0   MR !1    cb41da3
+REQ-3   add.md#REQ-3   DEMO-3    6505c1b   MR !2    9bcd25b
+REQ-4   add.md#REQ-4   DEMO-3    6505c1b   MR !2    9bcd25b
+REQ-5   add.md#REQ-5   DEMO-2    4cf77a0   MR !1    cb41da3
+
+$ sdlc ci-check 3335cd29-ffe3-4fcb-951e-c64bd8cefca4
+run-id valid; all required phases and approvals recorded
+
