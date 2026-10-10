@@ -3,3 +3,5 @@ data/
 *.exe
 *.log
 shots/
+data-test/
+fakegh/

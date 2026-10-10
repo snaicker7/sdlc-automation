@@ -64,9 +64,17 @@ Copy `sdlc.env.example` to `sdlc.env` (git-ignored) and fill in credentials; run
   PR opened with the `sdlc-run-id` footer. The PR is left for a human to merge; the pipeline polls and
   continues once GitHub reports it merged.
 
-Status: the code compiles and vets, but has **not yet been run against real Atlassian/GitHub accounts**.
+Status: verified end to end against `cmd/fakeapi` (a fake Jira/Confluence/GitHub server backed by real bare
+git repos): epic+stories with parent links, transitions, Confluence pages, branch push, PR open, wait-for-merge,
+local fast-forward, no token left in `.git/config`. It has **not yet been run against real Atlassian/GitHub
+accounts**, so real-world differences (custom Jira workflows, required fields, permissions) are untested.
 Use a sandbox Jira project, Confluence space and GitHub owner for the first run, and run with
 `-agent mock` first to test the integrations cheaply.
+
+To reproduce the fake-server run: start `fakeapi -addr 127.0.0.1:9900 -root fakegh`, then run
+`sdlc demo -agent mock` with `ATLASSIAN_SITE=http://127.0.0.1:9900`, `GITHUB_API_URL=http://127.0.0.1:9900/gh`,
+`GITHUB_GIT_BASE=file:///<abs path>/fakegh`, plus dummy `ATLASSIAN_*`, `JIRA_PROJECT`, `CONFLUENCE_SPACE`,
+`GITHUB_TOKEN`, `GITHUB_OWNER=tester` (and `SDLC_DB` pointing at a scratch database).
 
 ## Known gaps (not built yet)
 
