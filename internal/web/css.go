@@ -3,7 +3,7 @@ package web
 // Dark theme is the default; a toggle in the header switches to light (remembered in localStorage).
 const baseCSS = `{{define "head"}}<!doctype html><html lang="en" data-theme="dark"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title>{{.Title}} · SDLC Orchestrator</title>
-<script>document.documentElement.dataset.theme=localStorage.getItem('theme')||'dark'</script>
+<script>{const q=new URLSearchParams(location.search).get('theme');if(q)localStorage.setItem('theme',q);document.documentElement.dataset.theme=localStorage.getItem('theme')||'dark'}</script>
 <style>
 :root,[data-theme=dark]{--bg:#0a0f1e;--bg2:#0d1428;--card:#121a30;--card2:#18223d;--ink:#eaeefb;--mute:#a3afcc;--line:#27324f;--brand:#8b9bff;--brand2:#b48bff;--on-brand:#0a0f1e;
 --done:#3ddc97;--wait:#ffbf47;--work:#5ab0ff;--bad:#ff6b7a;--idle:#6b7799;--soft:#1a2440;--shadow:0 6px 24px rgba(0,0,0,.35);--glow:rgba(139,155,255,.16)}

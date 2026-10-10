@@ -38,6 +38,9 @@ type page struct {
 	Runs  []runCard
 	Flash string
 	Title string
+	Open  bool // index: expand the "new run" form
+	// OpenDocs expands the PRD/ADD on the Documents tab (?open=1).
+	OpenDocs bool
 }
 
 type runCard struct {
@@ -51,7 +54,7 @@ func (s *Server) index(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, err.Error(), 500)
 		return
 	}
-	p := page{Title: "Runs"}
+	p := page{Title: "Runs", Open: r.URL.Query().Get("new") != ""}
 	for _, ru := range runs {
 		v, err := s.E.View(r.Context(), ru.ID)
 		if err != nil {
@@ -89,7 +92,7 @@ func (s *Server) run(w http.ResponseWriter, r *http.Request) {
 	if tab == "" {
 		tab = "overview"
 	}
-	render(w, "run", page{V: v, Tab: tab, Attn: attention(v), Title: v.Run.Title})
+	render(w, "run", page{V: v, Tab: tab, Attn: attention(v), Title: v.Run.Title, OpenDocs: r.URL.Query().Get("open") != ""})
 }
 
 func (s *Server) api(w http.ResponseWriter, r *http.Request) {

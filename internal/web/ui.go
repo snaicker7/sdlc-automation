@@ -2,7 +2,7 @@ package web
 
 const indexPage = `{{define "index"}}{{template "head" .}}<main>
 <h1>Runs</h1><p class="sub">Each run takes an idea through the full pipeline. Agents do the work; people answer questions and approve at gates.</p>
-<details class="card" {{if not .Runs}}open{{end}}><summary>＋ Start a new run</summary>
+<details class="card" {{if or (not .Runs) .Open}}open{{end}}><summary>＋ Start a new run</summary>
 <form method="post" action="/start">
 <p class="small mute" style="margin:6px 0 4px">Title</p><input type="text" name="title" placeholder="e.g. Document organizer" style="width:100%" required>
 <p class="small mute" style="margin:10px 0 4px">What should be built? (the more concrete, the fewer questions the agents ask)</p>
@@ -75,7 +75,7 @@ const runPage = `{{define "run"}}{{template "head" .}}<main>
 
 {{else if eq .Tab "documents"}}
 <p class="sub" style="margin-top:14px">Every artifact is versioned and hashed. Approvals are bound to the hash shown.</p>
-{{range $v.Artifacts}}<details class="card" style="padding:6px 18px"><summary>{{label .Phase}}{{if .Scope}} · {{.Scope}}{{end}} — {{.Kind}} <span class="mute small">v{{.Version}} · {{.Hash}}</span></summary>
+{{range $v.Artifacts}}<details class="card" style="padding:6px 18px" {{if and $.OpenDocs (or (eq .Kind "prd.md") (eq .Kind "add.md"))}}open{{end}}><summary>{{label .Phase}}{{if .Scope}} · {{.Scope}}{{end}} — {{.Kind}} <span class="mute small">v{{.Version}} · {{.Hash}}</span></summary>
 {{if isMD .Kind}}<div class="doc">{{md .Content}}</div>{{else}}<pre class="doc">{{.Content}}</pre>{{end}}</details>{{else}}<div class="empty">Nothing yet.</div>{{end}}
 
 {{else if eq .Tab "tickets"}}

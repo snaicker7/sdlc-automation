@@ -1,0 +1,32 @@
+$ sdlc status ee1711df-a2e0-4a0b-84c3-4f41544059b2
+
+Run ee1711df-a2e0-4a0b-84c3-4f41544059b2  [completed]  Document organizer
+  spent $0.00 / $25.00, 24 agent calls
+
+  [done]   prd                                 (loops=1)
+  [done]   add                                
+  [done]   repo_breakdown                     
+  [done]   jira_creation                      
+  [done]   workspace                          
+  [done]     SBX-2/ticket_dev                 
+  [done]     SBX-2/testing                    
+  [done]     SBX-2/mr_creation                
+  [done]     SBX-2/post_mr                     (loops=1)
+  [done]     SBX-3/ticket_dev                 
+  [done]     SBX-3/testing                    
+  [done]     SBX-3/mr_creation                
+  [done]     SBX-3/post_mr                    
+  Q[prd] Which document formats must be supported in v1? -> accepted_assumption: Plain text and Markdown only (priya-pm)
+  Q[prd] Is a single-user local app sufficient, or do we need accounts? -> accepted_assumption: Single user, no auth (priya-pm)
+  Q[add] Where should documents be persisted? -> answered: Persist to a single JSON file in the user data dir, written atomically (temp file + rename). (arjun-lead)
+  MR !1 SBX-2 merged 3ec33a4
+  MR !2 SBX-3 merged ee590dd
+
+$ sdlc trace ee1711df-a2e0-4a0b-84c3-4f41544059b2
+REQ     ADD            STORY     COMMIT    MR       MERGE
+REQ-1   add.md#REQ-1   SBX-2     bc0b24f   PR #1    3ec33a4
+REQ-2   add.md#REQ-2   SBX-3     0a218da   PR #2    ee590dd
+
+$ sdlc ci-check ee1711df-a2e0-4a0b-84c3-4f41544059b2
+run-id valid; all required phases and approvals recorded
+

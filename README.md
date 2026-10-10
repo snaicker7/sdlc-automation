@@ -27,6 +27,70 @@ sdlc ci-check <run-id> [ticket]          # exit 1 blocks merge
 Postgres is embedded (zonky binaries, port 5433, data in `data/pg`), so no Docker is needed. Set
 `SDLC_DB` to use your own Postgres instead.
 
+## Screenshots
+
+A full run captured from the dashboard, one screen per capability. **Provenance:** these were captured with
+the deterministic `mock` agent (so spend shows $0.00 and the PRD text is short and canned) against the
+fake Jira/Confluence/GitHub server (`cmd/fakeapi`) backed by real git repos. Humans are simulated by
+driving the dashboard's own forms (`scripts/capture-screenshots.ps1`); the approver names in the audit trail
+(`priya-pm`, `arjun-lead`, `sam-dev`, `mei-reviewer`) are placeholders. Everything on screen is the real
+orchestrator, state machine, UI and integration code.
+
+### 1. Start a run
+Describe what to build; pick a change size (trivial changes skip PRD + design).
+
+![New run form](docs/screenshots/02-new-run-form.png)
+
+### 2. Ambiguity ledger: agents ask, you decide
+Before each phase the agent raises prioritized questions with a proposed default. The phase will not proceed
+until each is answered, or the default is explicitly accepted as an assumption (which is recorded and written into the document).
+
+![Open questions](docs/screenshots/03-questions.png)
+
+### 3. Approval gates, bound to the exact document version
+Every gate shows the document under review (rendered), the critic agent's findings and how many revision
+rounds it forced, and records who approved which content hash.
+
+| PRD approval | Jira dry-run preview |
+|---|---|
+| ![PRD approval](docs/screenshots/04-approval-prd.png) | ![Jira preview approval](docs/screenshots/05-approval-jira-preview.png) |
+
+| Implementation plan (before any code) | Post-MR review and scan results |
+|---|---|
+| ![Plan approval](docs/screenshots/06-approval-plan.png) | ![Review approval](docs/screenshots/07-approval-review.png) |
+
+### 4. Real integrations: the pipeline waits for a human to merge the GitHub PR
+Links to the published Confluence pages and GitHub repo appear on the run; after review approval the
+pipeline polls the PR and continues by itself once it is merged.
+
+![Waiting for PR merge](docs/screenshots/08-waiting-pr-merge.png)
+
+### 5. Run complete: pipeline, per-ticket progress, decisions and assumptions
+
+![Completed run](docs/screenshots/09-overview-complete.png)
+
+### 6. Documents (versioned, hashed), tickets and merge requests
+
+| Documents | Tickets and MRs |
+|---|---|
+| ![Documents](docs/screenshots/10-documents.png) | ![Tickets](docs/screenshots/11-tickets.png) |
+
+### 7. Audit trail, runs list and light theme
+
+| Activity feed | Runs list |
+|---|---|
+| ![Activity](docs/screenshots/12-activity.png) | ![Runs list](docs/screenshots/01-runs-list.png) |
+
+![Light theme](docs/screenshots/13-light-theme.png)
+
+### CLI
+
+`sdlc status`, `sdlc trace` (requirement to merge) and `sdlc ci-check` for the same run are in
+[`docs/cli-output.txt`](docs/cli-output.txt).
+
+To regenerate: start `fakeapi`, start `sdlc up -agent mock` (no auto-approve) and run
+`pwsh scripts/capture-screenshots.ps1 -Base http://localhost:8090`.
+
 ## How it works
 
 Every phase runs the same pipeline, implemented once in `internal/engine/worker.go`:
