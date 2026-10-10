@@ -659,6 +659,9 @@ func publishMR(ctx context.Context, env *Env) error {
 	label := fmt.Sprintf("MR !%d", id)
 	if env.E.ghOn() { // real GitHub: push the branch and open a pull request
 		wt := env.WorktreeDir(t.Repo, t.Key)
+		if err := env.ensureRemoteMain(ctx, env.RepoDir(t.Repo)); err != nil { // a PR needs a base branch on the remote
+			return err
+		}
 		if out, err := env.gitNet(ctx, wt, "push", "-u", "origin", "feat/"+t.Key); err != nil {
 			return fmt.Errorf("push branch: %w\n%s", err, out)
 		}

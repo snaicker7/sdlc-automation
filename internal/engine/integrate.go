@@ -53,6 +53,26 @@ func (env *Env) gitNet(ctx context.Context, dir string, args ...string) (string,
 	return git(ctx, dir, args...)
 }
 
+// ensureRemoteMain makes sure origin actually has a main branch, pushing the local one if not.
+// A previous attempt can leave a local clone with the scaffold commit that never reached
+// GitHub (e.g. the push was denied), and local checks alone would not notice.
+func (env *Env) ensureRemoteMain(ctx context.Context, repoDir string) error {
+	if !env.E.ghOn() {
+		return nil
+	}
+	out, err := env.gitNet(ctx, repoDir, "ls-remote", "--heads", "origin", "main")
+	if err != nil {
+		return fmt.Errorf("check remote main: %w", err)
+	}
+	if strings.TrimSpace(out) != "" {
+		return nil
+	}
+	if out, err := env.gitNet(ctx, repoDir, "push", "-u", "origin", "main"); err != nil {
+		return fmt.Errorf("push main to GitHub: %w\n%s", err, out)
+	}
+	return nil
+}
+
 func (env *Env) repoURL(name string) string {
 	return env.E.Int.GH.RemoteURL(env.E.Int.GH.RepoName(name))
 }

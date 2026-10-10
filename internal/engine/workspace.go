@@ -125,6 +125,9 @@ func (env *Env) ensureRepo(ctx context.Context, name string) (string, error) {
 			}
 		}
 	}
+	if err := env.ensureRemoteMain(ctx, dir); err != nil {
+		return "", err
+	}
 	var report strings.Builder
 	for _, step := range [][]string{{"build", "./..."}, {"vet", "./..."}, {"test", "./...", "-count=1"}} {
 		out, err := sh(ctx, dir, "go", step...)
