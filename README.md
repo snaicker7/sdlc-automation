@@ -1,31 +1,110 @@
-# SDLC automation orchestrator
+# SDLC Automator
 
-Deterministic Go orchestrator (Postgres-backed state machine) that drives Claude agents through
-PRD -> ADD -> repo breakdown -> Jira -> workspace -> per-ticket dev -> testing -> MR -> post-MR,
-with human gates, an ambiguity ledger, an audit trail and traceability.
+**Turns a one-paragraph idea into reviewed, merged code, with Claude agents doing the work and people
+making every decision that matters.**
 
-## Run it
+You describe what you want built. The automator walks it through the whole software lifecycle: PRD,
+architecture design, repo split, Jira tickets, a working repo, implementation, tests, a pull request, and a
+review-and-security pass. At each stage Claude agents draft the work, a second agent attacks it, and a
+person approves it before anything moves on. Every decision, document version and approval is recorded, so you
+can trace any line of code back to the requirement that asked for it.
+
+It is not "one giant prompt". It is a **deterministic Go orchestrator** (a Postgres-backed state machine, no
+LLM in control flow) that calls Claude agents inside bounded, validated steps.
+
+---
+
+## What happens when you start a run
+
+```
+ idea ──► PRD ──► Architecture ──► Repo split ──► Jira tickets ──► Workspace
+          │          │               │              │ (dry-run        │ (repo created,
+          │          │               │              │  preview)       │  scaffold pushed)
+          ▼          ▼               ▼              ▼                 ▼
+       every phase = clarify → generate → critique → validate → human gate → publish
+
+ then, for each ticket, one after another:
+   Plan ──► [you approve the plan] ──► Implement (TDD) ──► Test ──► Open PR ──► Review + scans
+                                                                                   │
+                         you merge the PR on GitHub ◄──────────────────────────────┘
+                         → Jira moves to Done, next ticket branches from the new main
+```
+
+The same six-step loop runs inside **every** phase:
+
+| Step | Who | What happens |
+|---|---|---|
+| **Clarify** | Agent, then you | The agent lists what is ambiguous as numbered questions, each with a proposed default. The phase **cannot proceed** until every question is answered, or you explicitly accept the default as a recorded assumption. |
+| **Generate** | Agent / tools | Produces the artifact (PRD, design, tickets, plan, code...) as an immutable, hashed, versioned document. |
+| **Critique** | A *separate* agent | Attacks the draft (untestable requirements, missing failure modes, contradictions with upstream docs). Blocking findings send it back for revision, a bounded number of times. |
+| **Validate** | Plain code, no LLM | Hard checks: every requirement is addressed in the design, every requirement is covered by a ticket, tests pass, and so on. |
+| **Gate** | **You** | You see the document, the critic's findings and how many revision rounds it took, then approve or request changes. Your approval is bound to that exact document version (by content hash). |
+| **Publish** | Orchestrator | The side effects: a Confluence page, Jira issues, a git branch, a pull request. |
+
+### The nine phases
+
+| # | Phase | What the agents do | What you decide |
+|---|---|---|---|
+| 1 | **PRD** | Ask clarifying questions, write the PRD with numbered, testable requirements | Answer questions; approve the PRD |
+| 2 | **Architecture (ADD)** | Design every requirement: components, data model, failure modes, test strategy | Approve the design |
+| 3 | **Repo split** | Decide which repos the work belongs in | Approve |
+| 4 | **Jira tickets** | Write an epic and stories with acceptance criteria, covering every requirement | Approve a **dry-run preview**; nothing is created in Jira until you do |
+| 5 | **Workspace** | (Automatic) create the GitHub repo, scaffold it, smoke-check the build | none |
+| 6 | **Develop** (per ticket) | Propose an implementation plan, then implement it test-first in an isolated git worktree | Approve the **plan before any code is written** |
+| 7 | **Test** | Run vet and the test suite; if they fail, an agent fixes and re-runs | Sign off on results |
+| 8 | **Merge request** | Write the PR description with the Jira link, requirement trace and test evidence; push the branch and open the PR | Approve submission |
+| 9 | **Review and scan** | A review bot checks the diff against the repo's rules; scanners run (go vet, gosec, govulncheck, gitleaks if installed); blocking findings are fixed and re-reviewed | Approve; then **you merge the PR** |
+
+## What it guarantees
+
+- **Humans stay in control.** Nothing irreversible happens without an approval, and the plan is approved before
+  code exists.
+- **No silent guessing.** Ambiguity is surfaced as a ledger of questions. Accepted assumptions are written into
+  the document, not buried.
+- **Approvals can't go stale.** A database trigger rejects an approval whose content hash doesn't match the
+  document under review.
+- **Agents check each other.** The critic is a separate agent from the writer; deterministic validators check
+  both.
+- **Full traceability.** `sdlc trace` shows requirement → design section → Jira story → commit → PR → merge.
+- **Complete audit trail.** Every question, answer, artifact version, approval and agent call (model, tokens,
+  cost) is stored and streamed as events.
+- **Cost control.** A per-run budget is enforced; models are routed by task (strong for design and review,
+  cheaper for formatting).
+- **Safe to retry.** Jobs use leases and retries; Jira issue creation is idempotent so a retry never duplicates
+  tickets; credentials are redacted from error messages.
+- **A merge gate you can wire into CI.** `sdlc ci-check <run-id>` exits non-zero if a PR doesn't belong to a run
+  with all required phases and approvals complete.
+
+## Quick start
 
 ```
 go build -o sdlc.exe ./cmd/sdlc
 
-# Unattended end-to-end demo (auto-approver stands in for humans; clearly attributed in the audit trail)
-sdlc demo -agent mock              # deterministic, free, ~20s: exercises state machine, loops, gates
-sdlc demo -agent claude -budget 10 # real agents build the sample "document organizer" app
+# Unattended demo (an auto-approver stands in for people and is labelled as such in the audit trail)
+sdlc demo -agent mock              # deterministic and free, ~20 seconds
+sdlc demo -agent claude -budget 10 # real Claude agents build the sample "document organizer"
 
 # Human-in-the-loop
-sdlc up -agent claude              # terminal 1: embedded Postgres + workers + dashboard on :8080
-sdlc start -title "Doc organizer" -idea "..."          # terminal 2
-# then answer questions / approve gates in the dashboard, or:
-sdlc status <run-id>
-sdlc answer <question-id> -accept        # accept the proposed default as an explicit assumption
-sdlc approve <gate-id>                   # or: -reject -comment "why"
-sdlc trace <run-id>
-sdlc ci-check <run-id> [ticket]          # exit 1 blocks merge
+sdlc up -agent claude              # embedded Postgres + workers + dashboard on :8080
+# open http://localhost:8080, start a run, answer questions, approve gates
+# (or use the CLI: start / status / answer / approve / trace / ci-check / retry)
 ```
 
-Postgres is embedded (zonky binaries, port 5433, data in `data/pg`), so no Docker is needed. Set
-`SDLC_DB` to use your own Postgres instead.
+Postgres is embedded (port 5433, data in `data/pg`), so no Docker is needed; set `SDLC_DB` to use your own.
+
+### Connect real Jira, Confluence and GitHub (optional)
+
+Copy `sdlc.env.example` to `sdlc.env` (git-ignored), fill it in, and run `sdlc check-integrations`. It only
+reads; it creates nothing. Leave a block out and that part stays local.
+
+| Integration | When you approve... | It does |
+|---|---|---|
+| **Confluence** | the PRD and the ADD | Publishes each as a page in your space |
+| **Jira** | the dry-run preview | Creates a real epic and stories (parent-linked, labelled `sdlc-<run>`); moves each story In Progress → In Review → Done as work advances |
+| **GitHub** | the workspace, then each MR | Creates the repo, pushes branches, opens a PR with the run id in its description, then **waits for you to merge it** and continues on its own |
+
+Use a sandbox Jira project, Confluence space and GitHub owner for first runs, and run with `-agent mock` to
+test the wiring cheaply.
 
 ## Screenshots
 
@@ -119,62 +198,50 @@ is real is every agent-written artifact and every line of code below.
   (add, list, search by tag/text, validation, HTTP API, 403 on a foreign Host header).
 - CLI view of the run, including the requirement-to-merge trace: [`docs/real-claude-run/cli-output.txt`](docs/real-claude-run/cli-output.txt).
 
-## How it works
+## How it is built
 
-Every phase runs the same pipeline, implemented once in `internal/engine/worker.go`:
+```
+cmd/sdlc          CLI + dashboard server + worker entrypoint
+cmd/fakeapi       fake Jira/Confluence/GitHub server (real bare git repos) for testing the integrations
+internal/engine   the orchestrator: phase definitions, state machine, queue, gates, ledger, views
+internal/agent    Claude Code headless runner, deterministic mock runner
+internal/integrations   Jira, Confluence, GitHub REST clients
+internal/web      dashboard (dark/light), approvals, ledger, documents, activity
+migrations/       Postgres schema (runs, phases, artifacts, ledger, gates, approvals, jobs, events, traces)
+phases/ events/   phase contract example and event schema
+scripts/          screenshot capture driver
+docs/ examples/   screenshots, real-run evidence, the app the pipeline built
+```
 
-`clarify -> generate -> critique -> validate -> gate -> publish`
+- **State machine:** `internal/engine/worker.go` implements the six-step loop once; `phases.go` defines what is
+  specific to each phase. Work is claimed from a Postgres queue with `SKIP LOCKED` leases; events go through a
+  transactional outbox (written to `data/events.jsonl`; swap in a Kafka producer in `FlushOutbox`).
+- **Agents:** `claude` drives Claude Code headless (`claude -p`) with per-call cost capture and a hard per-run
+  budget; `mock` is deterministic and deliberately triggers the critique and review-fix loops so the control flow
+  can be tested for free.
+- **Phase tools:** planners and reviewers get read-only repo access; implementers work in an isolated git worktree
+  with a restricted tool allow-list and don't run git themselves (the orchestrator commits).
 
-| step | who | what |
-|---|---|---|
-| clarify | agent | raises numbered questions, each with a proposed default, into the ledger. The phase waits until none are open; a human answers or explicitly accepts the default as an assumption (a DB trigger refuses to open a gate otherwise). |
-| generate | agent/tools | writes an immutable, hashed, versioned artifact (lineage recorded in `artifact_input`). |
-| critique | separate agent | adversarial review; blocking findings loop back to generate (bounded). |
-| validate | deterministic code | schema/coverage checks (every REQ in the ADD, every REQ covered by a story, tests pass...). |
-| gate | human | approval is bound to the exact artifact hash (DB trigger). Request-changes feeds the comment back into generate. |
-| publish | orchestrator | side effects (Jira issues, worktrees, merge), events, phase complete. |
+## Status and honest limits
 
-Phase definitions live in `internal/engine/phases.go` (`getDef`); `phases/prd.phase.yaml` documents the contract.
+**Verified**
+- The full pipeline end to end with mock agents (all phases, both feedback loops) and with real Claude agents
+  (13/13 phases, a working app built; see above).
+- The Confluence, Jira and GitHub integrations against a fake server, and against real Atlassian and GitHub
+  accounts: pages published, a real epic and stories created with parent links and labels, a repo scaffolded,
+  a feature branch pushed and a PR opened, and the story moved to In Review. The final wait-for-merge, then Done
+  leg has so far been exercised against the fake server.
+- Running against real accounts found and fixed two bugs that the fake server hid: a git auth header (the token,
+  base64-encoded) leaking into error messages, and a retry that reported success while the GitHub remote was
+  still empty. Both now have tests.
 
-State: `migrations/*.sql` (runs, phases, artifacts, ledger, gates, approvals, job queue with
-`SKIP LOCKED` leases, agent invocations + cost, trace links, events + transactional outbox).
-Events are relayed to `data/events.jsonl` (swap `FlushOutbox` for a Kafka producer).
-
-Agents: `internal/agent`. `claude` drives Claude Code headless (`claude -p`, JSON output, cost
-recorded per call, per-run budget enforced). Model routing by tier (strong/code/fast) via flags.
-`mock` is deterministic and deliberately triggers the critique and review-fix loops.
-
-## Real integrations (opt-in)
-
-Copy `sdlc.env.example` to `sdlc.env` (git-ignored) and fill in credentials; run
-`sdlc check-integrations` to verify them read-only. Any block you leave out stays local.
-
-- **Confluence**: PRD and ADD are published as pages when their gate is approved.
-- **Jira**: on approval of the dry-run preview, a real epic + stories are created (idempotent across
-  retries), and transitioned In Progress -> In Review -> Done as the ticket moves.
-- **GitHub**: repos are created (private, `<prefix><name>`) and cloned, each ticket's branch is pushed and a
-  PR opened with the `sdlc-run-id` footer. The PR is left for a human to merge; the pipeline polls and
-  continues once GitHub reports it merged.
-
-Status: verified end to end against `cmd/fakeapi` (a fake Jira/Confluence/GitHub server backed by real bare
-git repos): epic+stories with parent links, transitions, Confluence pages, branch push, PR open, wait-for-merge,
-local fast-forward, no token left in `.git/config`. It has **not yet been run against real Atlassian/GitHub
-accounts**, so real-world differences (custom Jira workflows, required fields, permissions) are untested.
-Use a sandbox Jira project, Confluence space and GitHub owner for the first run, and run with
-`-agent mock` first to test the integrations cheaply.
-
-To reproduce the fake-server run: start `fakeapi -addr 127.0.0.1:9900 -root fakegh`, then run
-`sdlc demo -agent mock` with `ATLASSIAN_SITE=http://127.0.0.1:9900`, `GITHUB_API_URL=http://127.0.0.1:9900/gh`,
-`GITHUB_GIT_BASE=file:///<abs path>/fakegh`, plus dummy `ATLASSIAN_*`, `JIRA_PROJECT`, `CONFLUENCE_SPACE`,
-`GITHUB_TOKEN`, `GITHUB_OWNER=tester` (and `SDLC_DB` pointing at a scratch database).
-
-## Known gaps (not built yet)
-
-- With no credentials configured, Jira/GitHub fall back to Postgres/local-git stand-ins (`jira_issue`, `merge_request`).
-- Approver identity is a free-text name; no RBAC check of `required_role`, no SSO.
-- No staleness propagation when an upstream artifact changes after approval (artifact lineage is recorded, the re-run logic is not).
-- No gate SLA escalation job, no Slack/Jira approval buttons.
-- Testing is unit tests + vet only (no testcontainers / contract / Playwright); scanners (gosec, govulncheck, gitleaks) run only if installed.
-- Workspace has no docker-compose for Kafka/Cassandra/Redis (the sample app doesn't need them).
-- Tickets run sequentially per run (each branches from main after the previous merge); no cross-repo contract-first ordering yet.
-- Crash recovery is lease-based re-run of the step; steps are mostly but not strictly idempotent.
+**Not built yet**
+- Approver identity is a free-text name: no SSO, and `required_role` is displayed but not enforced.
+- No re-run of downstream phases when an approved upstream document changes (lineage is recorded; the
+  invalidation logic is not).
+- No overdue-gate escalation, and no Slack or Jira approval buttons (approvals happen in the dashboard or CLI).
+- Testing is vet plus unit tests: no integration (testcontainers), contract or Playwright suites. Scanners
+  (gosec, govulncheck, gitleaks) run only if installed.
+- Tickets run one after another within a run; there is no cross-repo, contract-first ordering yet.
+- `sdlc ci-check` is ready to wire into a required GitHub check, but isn't wired in yet.
+- Crash recovery re-runs a step after its lease expires; steps are mostly but not strictly idempotent.
