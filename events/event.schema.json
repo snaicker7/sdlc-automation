@@ -1,0 +1,30 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "sdlc.events.v1",
+  "title": "SDLC automation event envelope",
+  "type": "object",
+  "required": ["event_id", "type", "run_id", "actor", "occurred_at"],
+  "properties": {
+    "event_id": { "type": "integer" },
+    "type": {
+      "enum": [
+        "run_started", "run_completed", "run_cancelled", "escape_hatch_used",
+        "phase_started", "phase_completed", "phase_blocked", "phase_stale",
+        "questions_raised", "question_resolved", "assumption_accepted",
+        "artifact_created", "critique_completed", "validation_failed",
+        "gate_opened", "gate_approved", "gate_rejected", "gate_escalated",
+        "agent_invoked", "budget_exceeded",
+        "jira_created", "mr_created", "mr_merged",
+        "scan_completed", "finding_triaged"
+      ]
+    },
+    "run_id": { "type": "string", "format": "uuid" },
+    "phase": { "type": "string" },
+    "scope": { "type": "string" },
+    "actor": { "type": "string", "description": "user id or agent:<skill>@<version>" },
+    "team": { "type": "string" },
+    "repo": { "type": "string" },
+    "occurred_at": { "type": "string", "format": "date-time" },
+    "payload": { "type": "object" }
+  }
+}

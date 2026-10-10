@@ -1,0 +1,53 @@
+# Phase contract. Every phase implements this same shape so the orchestrator stays generic.
+phase: prd
+skill: sdlc-prd
+skill_version: 0.1.0
+required_for: [standard, large]        # trivial changes skip PRD
+
+inputs:
+  - source: jira_idea                  # or slack thread, or free text
+  - source: knowledge_repo             # prior ADRs, glossary, conventions
+    optional: true
+
+outputs:
+  - kind: prd.md
+    template: templates/prd.md
+  - kind: prd.json                     # machine-readable requirements with stable IDs (REQ-001...)
+    schema: schemas/prd.schema.json
+
+steps:
+  clarify:
+    agent: interviewer
+    model_tier: strong
+    tools: [jira.read, confluence.read, knowledge.search]
+    contract: >
+      Produce batched, prioritized questions. Each has text, priority (1-3),
+      and a proposed_default. Write to the ledger; do not guess answers.
+    max_rounds: 3
+  generate:
+    agent: prd-writer
+    model_tier: strong
+    contract: >
+      Draft PRD from answered questions. Every accepted assumption appears
+      verbatim in an "Assumptions" section. Every requirement gets a stable ID.
+  critique:
+    agent: prd-critic                  # separate context from the writer
+    model_tier: strong
+    checks: [testable_requirements, missing_nonfunctional, contradictions, scope_creep]
+    on_blocking_finding: loop_to_generate   # max 2 loops, then surface to human
+  validate:                            # deterministic, no LLM
+    - schema: prd.schema.json
+    - rule: no_open_questions
+    - rule: every_requirement_has_acceptance_criteria
+  gate:
+    type: pm_approval
+    required_role: product_manager
+    sla_hours: 48
+    escalate_to: pm_lead
+  publish:
+    - confluence.upsert
+    - jira.link_epic
+    - trace.register: prd.json#requirements
+
+on_upstream_change: mark_stale          # re-run only if inputs changed
+budget_usd: 5

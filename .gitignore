@@ -1,0 +1,5 @@
+sdlc.env
+data/
+*.exe
+*.log
+shots/
