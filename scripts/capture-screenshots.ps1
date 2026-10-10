@@ -7,7 +7,8 @@ param(
   [string]$Bin = '.\sdlc.exe',
   [string]$Edge = 'C:\Program Files (x86)\Microsoft\Edge\Application\msedge.exe',
   [int]$TimeoutMinutes = 25,
-  [string]$RunId = ''
+  [string]$RunId = '',
+  [string]$Approver = '' # if set, every approval/answer is recorded under this name (e.g. 'claude-test-driver')
 )
 $ErrorActionPreference = 'Stop'
 New-Item -ItemType Directory -Force $Out | Out-Null
@@ -32,7 +33,7 @@ if ($RunId) {
 } else {
   Shot '02-new-run-form' '/?new=1' 760
   $idea = 'A simple document organizer: a small Go command-line/HTTP tool where a user adds text/markdown documents with a title and tags, lists them, and searches them by tag or text. Local single-user app, data persisted to a JSON file, standard library only.'
-  $r = Post '/start' @{ title = 'Document organizer'; idea = $idea; size = 'standard'; user = 'priya-pm' }
+  $r = Post '/start' @{ title = 'Document organizer'; idea = $idea; size = 'standard'; user = $(if ($Approver) { $Approver } else { 'priya-pm' }) }
   # the POST redirects to /run/<id>; the final URL carries the id
   $id = $r.BaseResponse.RequestMessage.RequestUri.AbsolutePath.Split('/')[-1]
 }
@@ -53,9 +54,9 @@ while ((Get-Date) -lt $deadline) {
     if (-not $seen['q']) { Shot '03-questions' "/run/$id" 1300; $seen['q'] = 1 }
     foreach ($q in $open) {
       if ($q.Phase -eq 'add') { # answer one in the human's own words, accept the rest
-        Post '/answer' @{ run = $id; q = $q.ID; answer = 'Persist to a single JSON file in the user data dir, written atomically (temp file + rename).'; user = 'arjun-lead' } | Out-Null
+        Post '/answer' @{ run = $id; q = $q.ID; answer = 'Persist to a single JSON file in the user data dir, written atomically (temp file + rename).'; user = $(if ($Approver) { $Approver } else { 'arjun-lead' }) } | Out-Null
       } else {
-        Post '/answer' @{ run = $id; q = $q.ID; accept = '1'; user = 'priya-pm' } | Out-Null
+        Post '/answer' @{ run = $id; q = $q.ID; accept = '1'; user = $(if ($Approver) { $Approver } else { 'priya-pm' }) } | Out-Null
       }
     }
     continue
@@ -64,7 +65,7 @@ while ((Get-Date) -lt $deadline) {
   if ($v.Gates -and @($v.Gates).Count -gt 0) {
     $g = @($v.Gates)[0]
     if ($gateShots.ContainsKey($g.Type) -and -not $seen[$g.Type]) { Shot $gateShots[$g.Type] "/run/$id" 1600; $seen[$g.Type] = 1 }
-    Post '/decide' @{ run = $id; gate = $g.ID; decision = 'approve'; user = $people[$g.Role]; comment = '' } | Out-Null
+    Post '/decide' @{ run = $id; gate = $g.ID; decision = 'approve'; user = $(if ($Approver) { $Approver } else { $people[$g.Role] }); comment = '' } | Out-Null
     continue
   }
 

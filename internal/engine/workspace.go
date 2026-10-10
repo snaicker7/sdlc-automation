@@ -26,9 +26,23 @@ func sh(ctx context.Context, dir string, name string, args ...string) (string, e
 	err := cmd.Run()
 	out := b.String()
 	if err != nil {
-		return out, fmt.Errorf("%s %s: %w\n%s", name, strings.Join(args, " "), err, trunc(out, 2000))
+		return out, fmt.Errorf("%s %s: %w\n%s", name, redactArgs(args), err, trunc(out, 2000))
 	}
 	return out, nil
+}
+
+// redactArgs renders a command line for error messages with credentials removed. The git
+// transport auth header is just the token base64-encoded, so it must never reach logs, the
+// database, artifacts or the dashboard.
+func redactArgs(args []string) string {
+	out := make([]string, len(args))
+	for i, a := range args {
+		if strings.Contains(strings.ToLower(a), "authorization:") {
+			a = "<redacted>"
+		}
+		out[i] = a
+	}
+	return strings.Join(out, " ")
 }
 
 func git(ctx context.Context, dir string, args ...string) (string, error) {

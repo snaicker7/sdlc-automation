@@ -153,9 +153,10 @@ func (a *Atlassian) UpsertPage(ctx context.Context, pageID, title, storage strin
 }
 
 var (
-	boldRe = regexp.MustCompile(`\*\*(.+?)\*\*`)
-	codeRe = regexp.MustCompile("`([^`]+)`")
-	numRe  = regexp.MustCompile(`^\d+\.\s+`)
+	boldRe   = regexp.MustCompile(`\*\*(.+?)\*\*`)
+	italicRe = regexp.MustCompile(`\*([^*\s][^*]*?)\*`)
+	codeRe   = regexp.MustCompile("`([^`]+)`")
+	numRe    = regexp.MustCompile(`^\d+\.\s+`)
 )
 
 // MarkdownToStorage converts the Markdown our agents write into Confluence storage format (XHTML).
@@ -172,6 +173,7 @@ func MarkdownToStorage(src string) string {
 	inline := func(s string) string {
 		s = html.EscapeString(s)
 		s = boldRe.ReplaceAllString(s, "<strong>$1</strong>")
+		s = italicRe.ReplaceAllString(s, "<em>$1</em>")
 		return codeRe.ReplaceAllString(s, "<code>$1</code>")
 	}
 	for _, line := range strings.Split(strings.ReplaceAll(src, "\r\n", "\n"), "\n") {
@@ -189,6 +191,9 @@ func MarkdownToStorage(src string) string {
 			code.WriteString(line + "\n")
 		case t == "":
 			closeList()
+		case t == "---" || t == "***":
+			closeList()
+			sb.WriteString("<hr/>")
 		case strings.HasPrefix(t, "#"):
 			closeList()
 			lvl := len(t) - len(strings.TrimLeft(t, "#"))
